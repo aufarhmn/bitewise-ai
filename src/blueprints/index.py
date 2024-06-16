@@ -1,26 +1,27 @@
-import os
 import pandas as pd
-
 from flask import Blueprint, jsonify, request
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sqlalchemy import create_engine
 
 ai_blueprint = Blueprint('ai', __name__, url_prefix='/api/ai')
 
-# LOAD DATA AND CREATE MODELS
-df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'data.csv'))
-tfidf = TfidfVectorizer(stop_words='english')
-tfidf_matrix = tfidf.fit_transform(df['Describe'])
-cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
+# LOAD DATA FROM DB
+DATABASE_URL = "postgresql+psycopg2://postgres:postgres@52.184.151.18/bitewise"
+engine = create_engine(DATABASE_URL)
+df = pd.read_sql('SELECT * FROM bitewise', engine)
 
+# DATA PREPROCESSING
+tfidf = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf.fit_transform(df['describe'])
+cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
 count = CountVectorizer(stop_words='english')
 count_matrix = count.fit_transform(df['soup'])
 cosine_sim2 = cosine_similarity(count_matrix, count_matrix)
-
 df = df.reset_index()
-indices = pd.Series(df.index, index=df['Name']).drop_duplicates()
+indices = pd.Series(df.index, index=df['name']).drop_duplicates()
 
 @ai_blueprint.route('/highest-choices', methods=['POST'])
 def highest_food_choices():
@@ -33,9 +34,9 @@ def highest_food_choices():
     if c_type not in ['Healthy Food', 'Snack', 'Dessert', 'Japanese', 'Indian', 'French', 'Mexican', 'Italian', 'Chinese', 'Beverage', 'Thai', 'Korean', 'Vietnames', 'Nepalese', 'Spanish']:
         return jsonify({'error': 'Invalid c_type value'}), 400
 
-    filtered_updated_food_data = df[(df['Veg_Non'] == veg_non) & (df['C_Type'] == c_type)]
-    sorted_filtered_data = filtered_updated_food_data.sort_values(by='Average_Rating', ascending=False)
-    return jsonify(sorted_filtered_data[['Name', 'Describe', 'Average_Rating']].head(5).to_dict(orient='records')), 200
+    filtered_updated_food_data = df[(df['veg_non'] == veg_non) & (df['c_type'] == c_type)]
+    sorted_filtered_data = filtered_updated_food_data.sort_values(by='average_rating', ascending=False)
+    return jsonify(sorted_filtered_data[['name', 'describe', 'average_rating']].head(5).to_dict(orient='records')), 200
 
 @ai_blueprint.route('/random-choices', methods=['POST'])
 def random_food_choices():
@@ -49,13 +50,13 @@ def random_food_choices():
     if c_type not in ['Healthy Food', 'Snack', 'Dessert', 'Japanese', 'Indian', 'French', 'Mexican', 'Italian', 'Chinese', 'Beverage', 'Thai', 'Korean', 'Vietnames', 'Nepalese', 'Spanish']:
         return jsonify({'error': 'Invalid c_type value'}), 400
 
-    filtered_updated_food_data = df[(df['Veg_Non'] == veg_non) & (df['C_Type'] == c_type)]
-    sorted_filtered_data = filtered_updated_food_data.sort_values(by='Average_Rating', ascending=False)
+    filtered_updated_food_data = df[(df['veg_non'] == veg_non) & (df['c_type'] == c_type)]
+    sorted_filtered_data = filtered_updated_food_data.sort_values(by='average_rating', ascending=False)
     
     if len(sorted_filtered_data) <= num_choices:
-        return jsonify(sorted_filtered_data[['Name', 'Describe', 'Average_Rating']].to_dict(orient='records')), 200
+        return jsonify(sorted_filtered_data[['name', 'describe', 'average_rating']].to_dict(orient='records')), 200
     else:
-        return jsonify(sorted_filtered_data[['Name', 'Describe', 'Average_Rating']].sample(n=num_choices, random_state=1).to_dict(orient='records')), 200
+        return jsonify(sorted_filtered_data[['name', 'describe', 'average_rating']].sample(n=num_choices, random_state=1).to_dict(orient='records')), 200
 
 @ai_blueprint.route('/recommendations', methods=['POST'])
 def get_recommendations():
@@ -75,7 +76,7 @@ def get_recommendations():
     recommended_recipes = []
     for idx in food_indices:
         recommended_recipes.append({
-            'Name': df.loc[idx, 'Name'],
+            'Name': df.loc[idx, 'name'],
             'Describe': df.loc[idx, 'soup']
         })
     
