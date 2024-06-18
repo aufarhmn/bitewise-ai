@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 ai_blueprint = Blueprint('ai', __name__, url_prefix='/api/ai')
 
 # LOAD DATA FROM DB
-DATABASE_URL = "postgresql+psycopg2://postgres:postgres@52.184.151.18/bitewise"
+DATABASE_URL = "postgresql+psycopg2://user:pass@host/db-name"
 engine = create_engine(DATABASE_URL)
 df = pd.read_sql('SELECT * FROM bitewise', engine)
 
